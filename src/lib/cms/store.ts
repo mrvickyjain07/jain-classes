@@ -2,19 +2,22 @@ import "server-only";
 import { promises as fs } from "node:fs";
 import path from "node:path";
 import * as sheets from "@/lib/google-sheets/client";
+import * as upstash from "@/lib/upstash/client";
 import { CmsError, TABS, TAB_NAMES, type RawTables, type Row, type TabName } from "./schema";
 import { SEED } from "./seed";
 
 /**
  * Content storage.
- *  - "sheets": the private Google Spreadsheet (production).
- *  - "local":  a JSON file in .data/ so the dashboard can be tried on a
- *              developer machine before Google is connected. Never used on Vercel.
- *  - "seed":   read-only starter content, shown when nothing is configured.
+ *  - "upstash": Upstash Redis — persistent, works on Vercel (production default).
+ *  - "sheets":  Google Sheets API (legacy; kept for existing deployments).
+ *  - "local":   a JSON file in .data/ so the dashboard can be tried on a
+ *               developer machine without any cloud service. Never used on Vercel.
+ *  - "seed":    read-only starter content, shown when nothing is configured.
  */
-export type Backend = "sheets" | "local" | "seed";
+export type Backend = "upstash" | "sheets" | "local" | "seed";
 
 export function backend(): Backend {
+  if (upstash.upstashConfig()) return "upstash";
   if (sheets.sheetsConfig()) return "sheets";
   if (process.env.VERCEL || process.env.CMS_DISABLE_LOCAL_STORE === "1") return "seed";
   return "local";
@@ -39,10 +42,12 @@ async function writeLocal(data: RawTables) {
 }
 
 const NOT_CONFIGURED =
-  "Google Sheets is not connected yet, so changes cannot be saved. Add the Google environment variables in Vercel (see README).";
+  "No CMS backend is configured. Add UPSTASH_REDIS_REST_URL and UPSTASH_REDIS_REST_TOKEN in Vercel (see README).";
 
 export async function readAll(): Promise<RawTables> {
   switch (backend()) {
+    case "upstash":
+      return upstash.readAllTabs();
     case "sheets":
       return sheets.readAllTabs();
     case "local":
@@ -54,6 +59,8 @@ export async function readAll(): Promise<RawTables> {
 
 export async function insertRow(tab: TabName, row: Row): Promise<void> {
   switch (backend()) {
+    case "upstash":
+      return upstash.appendRow(tab, row);
     case "sheets":
       return sheets.appendRow(tab, row);
     case "local": {
@@ -68,6 +75,8 @@ export async function insertRow(tab: TabName, row: Row): Promise<void> {
 
 export async function updateRow(tab: TabName, keyColumn: string, keyValue: string, patch: Row): Promise<void> {
   switch (backend()) {
+    case "upstash":
+      return upstash.updateRow(tab, keyColumn, keyValue, patch);
     case "sheets":
       return sheets.updateRow(tab, keyColumn, keyValue, patch);
     case "local": {
@@ -84,6 +93,8 @@ export async function updateRow(tab: TabName, keyColumn: string, keyValue: strin
 
 export async function deleteRow(tab: TabName, keyColumn: string, keyValue: string): Promise<void> {
   switch (backend()) {
+    case "upstash":
+      return upstash.deleteRow(tab, keyColumn, keyValue);
     case "sheets":
       return sheets.deleteRow(tab, keyColumn, keyValue);
     case "local": {
@@ -100,6 +111,8 @@ export async function deleteRow(tab: TabName, keyColumn: string, keyValue: strin
 
 export async function setup(withStarterContent: boolean): Promise<string[]> {
   switch (backend()) {
+    case "upstash":
+      return upstash.setupDatabase(withStarterContent ? SEED : undefined);
     case "sheets":
       return sheets.setupSpreadsheet(withStarterContent ? SEED : undefined);
     case "local": {

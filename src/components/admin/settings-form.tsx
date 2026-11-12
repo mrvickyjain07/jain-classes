@@ -138,13 +138,13 @@ export function SpreadsheetSetup({ disabled }: { disabled: boolean }) {
     });
   return (
     <section className="rounded-xl border border-line bg-white p-6 shadow-card">
-      <h2 className="text-lg font-semibold">Spreadsheet set-up</h2>
+      <h2 className="text-lg font-semibold">Database set-up</h2>
       <p className="mt-1 max-w-2xl text-sm text-muted">
-        Run this once after connecting the “Jain Classes CMS” Google Sheet. It creates any missing tabs and column headings. Existing rows are never changed or removed. Starter content (courses, subjects and sample topics) is added only to tabs that are empty.
+        Run this once after connecting the Upstash Redis database. It initialises the database. Starter content is added only when the database is empty. Existing content is never removed.
       </p>
       <div className="mt-4 flex flex-col gap-2.5 sm:flex-row">
         <Button variant="navy" onClick={() => run(true)} disabled={pending || disabled}>{pending ? "Working…" : "Set up with starter content"}</Button>
-        <Button variant="outline" onClick={() => run(false)} disabled={pending || disabled}>Create tabs and columns only</Button>
+        <Button variant="outline" onClick={() => run(false)} disabled={pending || disabled}>Initialise empty database</Button>
       </div>
     </section>
   );
